@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Service;
-
+import com.futurekawa.pays.alerte.service.AlerteService;
 import java.time.Instant;
 
 @Service
@@ -23,12 +23,16 @@ public class MesureIngestionService {
     private final CapteurRepository capteurRepository;
     private final ObjectMapper objectMapper;
 
+    private final AlerteService alerteService;
+
     public MesureIngestionService(MesureRepository mesureRepository,
                                   CapteurRepository capteurRepository,
-                                  ObjectMapper objectMapper) {
+                                  ObjectMapper objectMapper,
+                                  AlerteService alerteService) {
         this.mesureRepository = mesureRepository;
         this.capteurRepository = capteurRepository;
         this.objectMapper = objectMapper;
+        this.alerteService = alerteService;
     }
 
     @ServiceActivator(inputChannel = "mqttInputChannel")
@@ -67,6 +71,6 @@ public class MesureIngestionService {
         mesureRepository.save(mesure);
         log.info("Mesure enregistrée: entrepot={} temp={} hum={}",
                 capteur.getEntrepot().getId(), payload.temperature(), payload.humidite());
-        // En Phase 4 : on appellera ici AlerteService.evaluerMesure(mesure)
+        alerteService.evaluerMesure(mesure);
     }
 }
