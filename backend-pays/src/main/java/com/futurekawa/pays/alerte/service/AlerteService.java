@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 
+import org.springframework.scheduling.annotation.Scheduled;
 @Service
 public class AlerteService {
 
@@ -73,5 +74,34 @@ public class AlerteService {
         }
         log.warn("ALERTE CONDITION levée : {}", alerte.getMessage());
         // En étape 12 : envoi de l'email ici
+    }
+
+    /** S'exécute au démarrage puis toutes les heures. Repère les lots > 365 jours. */
+    @Scheduled(initialDelay = 5000, fixedRate = 3600000) // 5 s après démarrage, puis chaque heure
+    @Transactional
+    public void evaluerPeremptions() {
+        Instant seuil365 = Instant.now().minusSeconds(365L * 24 * 60 * 60);
+        List<Lot> lotsAnciens = lotRepository
+                .findByDateStockageBeforeAndStatutNot(seuil365, StatutLot.PERIME);
+
+        for (Lot lot : lotsAnciens) {
+            lot.setStatut(StatutLot.PERIME);
+
+            Alerte alerte = new Alerte();
+            alerte.setType(TypeAlerte.PEREMPTION);
+            alerte.setStatut(StatutAlerte.ACTIVE);
+            alerte.setEntrepot(lot.getEntrepot());
+            alerte.setLot(lot);
+            alerte.setDeclencheeAt(Instant.now());
+            long jours = (Instant.now().getEpochSecond() - lot.getDateStockage().getEpochSecond())
+                    / (24 * 60 * 60);
+            alerte.setMessage(String.format(
+                    "Lot %s périmé : %d jours de stockage (> 365)",
+                    lot.getReference(), jours));
+            alerteRepository.save(alerte);
+
+            log.warn("ALERTE PEREMPTION levée : {}", alerte.getMessage());
+            // En étape 12 : envoi de l'email ici aussi
+        }
     }
 }
