@@ -26,4 +26,25 @@ public class Alerte {
     @Column(name = "declenchee_at", nullable = false) private Instant declencheeAt;
     @Column(name = "email_envoye", nullable = false) private boolean emailEnvoye;
     @Column(name = "resolue_at") private Instant resolueAt;
+
+    @Column(name = "derniere_observation_at")
+    private Instant derniereObservationAt;
+
+    @Column(name = "derniere_notification_at")
+    private Instant derniereNotificationAt;
+
+    @Column(name = "nb_notifications", nullable = false)
+    private int nbNotifications;
+
+    @Column(name = "valeur_extreme_temp")
+    private Double valeurExtremeTemp;
+
+    @Column(name = "valeur_extreme_hum")
+    private Double valeurExtremeHum;
+
+    @Column(name = "acquittee_at")
+    private Instant acquitteeAt;
+
+    @Column(name = "mode_resolution")
+    private String modeResolution;
 }
