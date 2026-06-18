@@ -11,7 +11,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate        # le schéma est géré par Flyway, jamais par Hibernate
+      ddl-auto: none        # le schéma est géré par Flyway, jamais par Hibernate
     open-in-view: false
     properties:
       hibernate:
