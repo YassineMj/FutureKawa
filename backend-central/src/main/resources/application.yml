@@ -13,6 +13,8 @@ app:
       url: http://localhost:8080
     - code: EQUATEUR
       url: http://localhost:8081
+    - code: COLOMBIE
+      url: http://localhost:8082
   client:
     connect-timeout-ms: 2000   # delai max pour etablir la connexion
     read-timeout-ms: 3000      # delai max pour lire la reponse

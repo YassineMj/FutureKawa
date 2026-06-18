@@ -50,6 +50,19 @@ services:
     volumes:
       - pgdata_ec:/var/lib/postgresql/data
 
+  postgres-colombie:
+    image: postgres:17
+    container_name: fk-postgres-co
+    environment:
+      POSTGRES_DB: futurekawa
+      POSTGRES_USER: futurekawa
+      POSTGRES_PASSWORD: changeme
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata_co:/var/lib/postgresql/data
+
 volumes:
   pgdata:
   pgdata_ec:
+  pgdata_co:
