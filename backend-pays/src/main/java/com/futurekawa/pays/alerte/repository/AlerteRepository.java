@@ -12,4 +12,7 @@ public interface AlerteRepository extends JpaRepository<Alerte, Long> {
             TypeAlerte type, StatutAlerte statut, Long entrepotId);
 
     List<Alerte> findAllByOrderByDeclencheeAtDesc();
+
+    boolean existsByTypeAndStatutAndLotId(
+            TypeAlerte type, StatutAlerte statut, Long lotId);
 }

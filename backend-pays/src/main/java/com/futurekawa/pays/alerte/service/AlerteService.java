@@ -12,7 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.futurekawa.pays.notification.service.NotificationService;
 import java.time.Instant;
 import java.util.List;
 
@@ -26,12 +26,16 @@ public class AlerteService {
     private final LotRepository lotRepository;
     private final SeuilConfig seuils;
 
+    private final NotificationService notificationService;
+
     public AlerteService(AlerteRepository alerteRepository,
                          LotRepository lotRepository,
-                         SeuilConfig seuils) {
+                         SeuilConfig seuils,
+                         NotificationService notificationService) {
         this.alerteRepository = alerteRepository;
         this.lotRepository = lotRepository;
         this.seuils = seuils;
+        this.notificationService = notificationService;
     }
 
     /** Appelée à chaque mesure ingérée. Lève une alerte si hors bande. */
@@ -63,7 +67,9 @@ public class AlerteService {
                         "(attendu %.0f-%.0f°C / %.0f-%.0f%%)",
                 entrepotId, mesure.getTemperature(), mesure.getHumidite(),
                 seuils.tempMin(), seuils.tempMax(), seuils.humMin(), seuils.humMax()));
+        alerte.setEmailEnvoye(true);
         alerteRepository.save(alerte);
+        notificationService.envoyerAlerteEmail(alerte);
 
         // Tous les lots de cet entrepôt passent EN_ALERTE
         List<Lot> lots = lotRepository.findByEntrepotIdOrderByDateStockageAsc(entrepotId);
@@ -85,6 +91,14 @@ public class AlerteService {
                 .findByDateStockageBeforeAndStatutNot(seuil365, StatutLot.PERIME);
 
         for (Lot lot : lotsAnciens) {
+            // garde anti-doublon : ne pas recréer si une alerte PEREMPTION est déjà ACTIVE pour ce lot
+            boolean dejaActive = alerteRepository
+                    .existsByTypeAndStatutAndLotId(
+                            TypeAlerte.PEREMPTION, StatutAlerte.ACTIVE, lot.getId());
+            if (dejaActive) {
+                continue;
+            }
+
             lot.setStatut(StatutLot.PERIME);
 
             Alerte alerte = new Alerte();
@@ -94,14 +108,16 @@ public class AlerteService {
             alerte.setLot(lot);
             alerte.setDeclencheeAt(Instant.now());
             long jours = (Instant.now().getEpochSecond() - lot.getDateStockage().getEpochSecond())
-                    / (24 * 60 * 60);
-            alerte.setMessage(String.format(
+                    / (24 * 60 * 60);            alerte.setMessage(String.format(
                     "Lot %s périmé : %d jours de stockage (> 365)",
                     lot.getReference(), jours));
+            alerte.setEmailEnvoye(true);
             alerteRepository.save(alerte);
+            notificationService.envoyerAlerteEmail(alerte);
 
             log.warn("ALERTE PEREMPTION levée : {}", alerte.getMessage());
-            // En étape 12 : envoi de l'email ici aussi
         }
+
     }
+
 }
