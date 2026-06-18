@@ -37,5 +37,19 @@ services:
       - "1025:1025"   # SMTP : le back-end envoie les emails ici
       - "8025:8025"   # Interface web : http://localhost:8025
 
+
+  postgres-equateur:
+    image: postgres:17
+    container_name: fk-postgres-ec
+    environment:
+      POSTGRES_DB: futurekawa
+      POSTGRES_USER: futurekawa
+      POSTGRES_PASSWORD: changeme
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata_ec:/var/lib/postgresql/data
+
 volumes:
   pgdata:
+  pgdata_ec:

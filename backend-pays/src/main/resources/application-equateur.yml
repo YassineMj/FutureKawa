@@ -1,0 +1,23 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/futurekawa   # port du Postgres Équateur
+
+  flyway:
+    locations: classpath:db/migration,classpath:db/seed/equateur
+
+app:
+  pays: EQUATEUR
+  alerting:
+    email-destinataire: responsable-equateur@futurekawa.example
+  seuils:                       # Équateur : 31°C / 60%
+    temperature-ideale: 31
+    humidite-ideale: 60
+    tolerance-temperature: 3
+    tolerance-humidite: 2
+  mqtt:
+    broker-url: tcp://localhost:1883
+    topic-mesures: futurekawa/equateur/+/mesures
+    client-id: backend-pays-equateur
