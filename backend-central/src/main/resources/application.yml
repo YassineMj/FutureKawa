@@ -1,0 +1,28 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: backend-central
+
+# Annuaire des back-ends pays : code -> URL de base.
+# Le central interroge ces URLs via REST (pas de base de donnees ici).
+app:
+  pays:
+    - code: BRESIL
+      url: http://localhost:8080
+    - code: EQUATEUR
+      url: http://localhost:8081
+  client:
+    connect-timeout-ms: 2000   # delai max pour etablir la connexion
+    read-timeout-ms: 3000      # delai max pour lire la reponse
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
