@@ -10,6 +10,7 @@ import java.util.List;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.List;
+import java.util.Optional;
 
 public interface AlerteRepository extends JpaRepository<Alerte, Long> {
 
@@ -27,4 +28,7 @@ public interface AlerteRepository extends JpaRepository<Alerte, Long> {
            """)
     List<Alerte> rechercher(@Param("statut") StatutAlerte statut,
                             @Param("type") TypeAlerte type);
+
+    Optional<Alerte> findFirstByTypeAndEntrepotIdAndStatutInOrderByDeclencheeAtDesc(
+            TypeAlerte type, Long entrepotId, java.util.Collection<StatutAlerte> statuts);
 }

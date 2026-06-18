@@ -48,4 +48,25 @@ public class NotificationService {
             log.error("Échec d'envoi de l'email d'alerte", e);
         }
     }
+
+    @Async
+    public void envoyerResolutionEmail(Alerte alerte, long dureeMinutes) {
+        try {
+            SimpleMailMessage mail = new SimpleMailMessage();
+            mail.setFrom("alerting@futurekawa.example");
+            mail.setTo(destinataire);
+            mail.setSubject("[FutureKawa " + pays + "] Résolution - Alerte " + alerte.getType());
+            mail.setText(
+                    "Bonjour,\n\n" +
+                            "L'incident suivant est résolu (retour à la normale) :\n\n" +
+                            alerte.getMessage() + "\n\n" +
+                            "Durée de l'incident : ~" + dureeMinutes + " min\n" +
+                            "Résolu le : " + alerte.getResolueAt() + "\n\n" +
+                            "-- Système de supervision FutureKawa");
+            mailSender.send(mail);
+            log.info("Email de résolution envoyé à {}", destinataire);
+        } catch (Exception e) {
+            log.error("Échec d'envoi de l'email de résolution", e);
+        }
+    }
 }

@@ -15,6 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.futurekawa.pays.notification.service.NotificationService;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
+
+
 import com.futurekawa.pays.alerte.dto.AlerteDto;
 
 
@@ -29,59 +32,114 @@ public class AlerteService {
     private final SeuilConfig seuils;
 
     private final NotificationService notificationService;
-
+    private final HysteresisTracker hysteresis;
+    private final int seuilOuverture;
+    private final int seuilResolution;
     public AlerteService(AlerteRepository alerteRepository,
                          LotRepository lotRepository,
                          SeuilConfig seuils,
-                         NotificationService notificationService) {
+                         NotificationService notificationService,
+                         HysteresisTracker hysteresis,
+                         @org.springframework.beans.factory.annotation.Value("${app.alerte.mesures-consecutives-ouverture:3}") int seuilOuverture,
+                         @org.springframework.beans.factory.annotation.Value("${app.alerte.mesures-consecutives-resolution:3}") int seuilResolution) {
         this.alerteRepository = alerteRepository;
         this.lotRepository = lotRepository;
         this.seuils = seuils;
         this.notificationService = notificationService;
+        this.hysteresis = hysteresis;
+        this.seuilOuverture = seuilOuverture;
+        this.seuilResolution = seuilResolution;
     }
 
     /** Appelée à chaque mesure ingérée. Lève une alerte si hors bande. */
     @Transactional
     public void evaluerMesure(Mesure mesure) {
-        if (seuils.estDansLaBande(mesure.getTemperature(), mesure.getHumidite())) {
-            return; // conditions correctes, rien à faire
-        }
-
         Long entrepotId = mesure.getEntrepot().getId();
+        boolean dansLaBande = seuils.estDansLaBande(mesure.getTemperature(), mesure.getHumidite());
 
-        // Anti-rebond : on ne recrée pas d'alerte CONDITION si une est déjà ACTIVE sur cet entrepôt
-        boolean dejaActive = alerteRepository
-                .existsByTypeAndStatutAndEntrepotId(
-                        TypeAlerte.CONDITION, StatutAlerte.ACTIVE, entrepotId);
-        if (dejaActive) {
-            return;
+        Optional<Alerte> incidentOuvert = alerteRepository
+                .findFirstByTypeAndEntrepotIdAndStatutInOrderByDeclencheeAtDesc(
+                        TypeAlerte.CONDITION, entrepotId,
+                        List.of(StatutAlerte.ACTIVE, StatutAlerte.ACQUITTEE));
+
+        if (!dansLaBande) {
+            int consecutives = hysteresis.horsPlage(entrepotId);
+
+            if (incidentOuvert.isPresent()) {
+                // anomalie déjà connue : on met à jour l'incident (dernière obs + pire valeur)
+                majIncident(incidentOuvert.get(), mesure);
+            } else if (consecutives >= seuilOuverture) {
+                // nouvelle anomalie confirmée par l'hystérésis : on ouvre un incident
+                ouvrirIncident(mesure);
+            }
+            // sinon : pas encore assez de mesures consécutives, on attend (anti-flapping)
+
+        } else {
+            int consecutives = hysteresis.dansLaPlage(entrepotId);
+
+            if (incidentOuvert.isPresent() && consecutives >= seuilResolution) {
+                // retour à la normale confirmé : on résout
+                resoudreAuto(incidentOuvert.get());
+            }
         }
+    }
 
+    private void ouvrirIncident(Mesure mesure) {
         Alerte alerte = new Alerte();
         alerte.setType(TypeAlerte.CONDITION);
         alerte.setStatut(StatutAlerte.ACTIVE);
         alerte.setEntrepot(mesure.getEntrepot());
         alerte.setValeurTemperature(mesure.getTemperature());
         alerte.setValeurHumidite(mesure.getHumidite());
+        alerte.setValeurExtremeTemp(mesure.getTemperature());
+        alerte.setValeurExtremeHum(mesure.getHumidite());
         alerte.setDeclencheeAt(Instant.now());
+        alerte.setDerniereObservationAt(Instant.now());
         alerte.setMessage(String.format(
-                "Conditions hors plage dans l'entrepot %d : %.1f°C / %.1f%% " +
-                        "(attendu %.0f-%.0f°C / %.0f-%.0f%%)",
-                entrepotId, mesure.getTemperature(), mesure.getHumidite(),
+                "Conditions hors plage dans l'entrepot %d : %.1f°C / %.1f%% (attendu %.0f-%.0f°C / %.0f-%.0f%%)",
+                mesure.getEntrepot().getId(), mesure.getTemperature(), mesure.getHumidite(),
                 seuils.tempMin(), seuils.tempMax(), seuils.humMin(), seuils.humMax()));
         alerte.setEmailEnvoye(true);
+        alerte.setDerniereNotificationAt(Instant.now());
+        alerte.setNbNotifications(1);
         alerteRepository.save(alerte);
-        notificationService.envoyerAlerteEmail(alerte);
 
-        // Tous les lots de cet entrepôt passent EN_ALERTE
-        List<Lot> lots = lotRepository.findByEntrepotIdOrderByDateStockageAsc(entrepotId);
-        for (Lot lot : lots) {
-            if (lot.getStatut() == StatutLot.CONFORME) {
-                lot.setStatut(StatutLot.EN_ALERTE);
-            }
+        for (Lot lot : lotRepository.findByEntrepotIdOrderByDateStockageAsc(mesure.getEntrepot().getId())) {
+            if (lot.getStatut() == StatutLot.CONFORME) lot.setStatut(StatutLot.EN_ALERTE);
         }
-        log.warn("ALERTE CONDITION levée : {}", alerte.getMessage());
-        // En étape 12 : envoi de l'email ici
+        log.warn("ALERTE CONDITION ouverte : {}", alerte.getMessage());
+        notificationService.envoyerAlerteEmail(alerte);
+    }
+
+    private void majIncident(Alerte alerte, Mesure mesure) {
+        alerte.setDerniereObservationAt(Instant.now());
+        // mémoriser la pire valeur observée (la plus éloignée de l'idéal)
+        if (alerte.getValeurExtremeTemp() == null
+                || Math.abs(mesure.getTemperature() - seuils.getTemperatureIdeale())
+                > Math.abs(alerte.getValeurExtremeTemp() - seuils.getTemperatureIdeale())) {
+            alerte.setValeurExtremeTemp(mesure.getTemperature());
+        }
+        if (alerte.getValeurExtremeHum() == null
+                || Math.abs(mesure.getHumidite() - seuils.getHumiditeIdeale())
+                > Math.abs(alerte.getValeurExtremeHum() - seuils.getHumiditeIdeale())) {
+            alerte.setValeurExtremeHum(mesure.getHumidite());
+        }
+        // pas d'email ici : la re-notification sera gérée par le planificateur (étape 3)
+    }
+
+    private void resoudreAuto(Alerte alerte) {
+        alerte.setStatut(StatutAlerte.RESOLUE);
+        alerte.setResolueAt(Instant.now());
+        alerte.setModeResolution("AUTO");
+        long minutes = java.time.Duration.between(alerte.getDeclencheeAt(), Instant.now()).toMinutes();
+
+        // lots de l'entrepôt : retour à CONFORME (sauf périmés)
+        for (Lot lot : lotRepository.findByEntrepotIdOrderByDateStockageAsc(alerte.getEntrepot().getId())) {
+            if (lot.getStatut() == StatutLot.EN_ALERTE) lot.setStatut(StatutLot.CONFORME);
+        }
+        log.info("ALERTE CONDITION résolue (entrepot {}, durée ~{} min)",
+                alerte.getEntrepot().getId(), minutes);
+        notificationService.envoyerResolutionEmail(alerte, minutes);
     }
 
     /** S'exécute au démarrage puis toutes les heures. Repère les lots > 365 jours. */
@@ -157,4 +215,6 @@ public class AlerteService {
         alerte.setResolueAt(java.time.Instant.now());
         return toDto(alerte); // sauvegarde automatique en fin de transaction (entité suivie)
     }
+
+
 }
