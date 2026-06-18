@@ -69,4 +69,25 @@ public class NotificationService {
             log.error("Échec d'envoi de l'email de résolution", e);
         }
     }
+
+    @Async
+    public void envoyerRappelEmail(Alerte alerte, long dureeMinutes, int numeroRappel) {
+        try {
+            SimpleMailMessage mail = new SimpleMailMessage();
+            mail.setFrom("alerting@futurekawa.example");
+            mail.setTo(destinataire);
+            mail.setSubject("[FutureKawa " + pays + "] RAPPEL #" + numeroRappel
+                    + " - Alerte " + alerte.getType() + " toujours active");
+            mail.setText(
+                    "Bonjour,\n\n" +
+                            "L'incident suivant est TOUJOURS EN COURS depuis ~" + dureeMinutes + " min :\n\n" +
+                            alerte.getMessage() + "\n\n" +
+                            "Ceci est le rappel n°" + numeroRappel + ". Merci de traiter cet incident.\n" +
+                            "-- Système de supervision FutureKawa");
+            mailSender.send(mail);
+            log.info("Email de rappel n°{} envoyé à {}", numeroRappel, destinataire);
+        } catch (Exception e) {
+            log.error("Échec d'envoi de l'email de rappel", e);
+        }
+    }
 }

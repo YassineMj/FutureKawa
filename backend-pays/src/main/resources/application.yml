@@ -37,10 +37,11 @@ app:
   pays: ${APP_PAYS:BRESIL}
   alerting:
     email-destinataire: ${APP_EMAIL_RESPONSABLE:responsable-bresil@futurekawa.example}
-    mesures-consecutives-ouverture: 3   # N mesures hors plage avant d'ouvrir
-    mesures-consecutives-resolution: 3  # N mesures normales avant de resoudre
-
-  seuils:                       # exemple : Brésil (29 °C / 55 %) ± tolérances
+  alerte:
+    mesures-consecutives-ouverture: 3
+    mesures-consecutives-resolution: 3
+    rappel-intervalle-minutes: 1
+  seuils:
     temperature-ideale: 29
     humidite-ideale: 55
     tolerance-temperature: 3

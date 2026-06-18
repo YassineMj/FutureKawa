@@ -16,6 +16,7 @@ import com.futurekawa.pays.notification.service.NotificationService;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.time.Duration;
 
 
 import com.futurekawa.pays.alerte.dto.AlerteDto;
@@ -35,13 +36,16 @@ public class AlerteService {
     private final HysteresisTracker hysteresis;
     private final int seuilOuverture;
     private final int seuilResolution;
+
+    private final int rappelIntervalleMinutes;
     public AlerteService(AlerteRepository alerteRepository,
                          LotRepository lotRepository,
                          SeuilConfig seuils,
                          NotificationService notificationService,
                          HysteresisTracker hysteresis,
                          @org.springframework.beans.factory.annotation.Value("${app.alerte.mesures-consecutives-ouverture:3}") int seuilOuverture,
-                         @org.springframework.beans.factory.annotation.Value("${app.alerte.mesures-consecutives-resolution:3}") int seuilResolution) {
+                         @org.springframework.beans.factory.annotation.Value("${app.alerte.mesures-consecutives-resolution:3}") int seuilResolution,
+                         @org.springframework.beans.factory.annotation.Value("${app.alerte.rappel-intervalle-minutes:30}") int rappelIntervalleMinutes) {
         this.alerteRepository = alerteRepository;
         this.lotRepository = lotRepository;
         this.seuils = seuils;
@@ -49,6 +53,7 @@ public class AlerteService {
         this.hysteresis = hysteresis;
         this.seuilOuverture = seuilOuverture;
         this.seuilResolution = seuilResolution;
+        this.rappelIntervalleMinutes = rappelIntervalleMinutes;
     }
 
     /** Appelée à chaque mesure ingérée. Lève une alerte si hors bande. */
@@ -216,5 +221,27 @@ public class AlerteService {
         return toDto(alerte); // sauvegarde automatique en fin de transaction (entité suivie)
     }
 
+    /** Toutes les minutes : renvoie un rappel pour chaque incident ACTIVE assez ancien. */
+    @Scheduled(initialDelay = 10000, fixedRate = 15000) // 10 s puis toutes les 15 s
+    @Transactional
+    public void envoyerRappels() {
+        Instant limite = Instant.now().minus(Duration.ofMinutes(rappelIntervalleMinutes));
+        List<Alerte> actives = alerteRepository.findByTypeAndStatut(
+                TypeAlerte.CONDITION, StatutAlerte.ACTIVE);
 
+        for (Alerte alerte : actives) {
+            Instant derniere = alerte.getDerniereNotificationAt();
+            if (derniere == null || derniere.isBefore(limite)) {
+                alerte.setNbNotifications(alerte.getNbNotifications() + 1);
+                alerte.setDerniereNotificationAt(Instant.now());
+                long minutes = Duration.between(
+                                alerte.getDeclencheeAt(),
+                                Instant.now())
+                        .toMinutes();
+                notificationService.envoyerRappelEmail(alerte, minutes, alerte.getNbNotifications());
+                log.warn("RAPPEL alerte CONDITION entrepot {} (rappel n°{})",
+                        alerte.getEntrepot().getId(), alerte.getNbNotifications());
+            }
+        }
+    }
 }

@@ -31,4 +31,7 @@ public interface AlerteRepository extends JpaRepository<Alerte, Long> {
 
     Optional<Alerte> findFirstByTypeAndEntrepotIdAndStatutInOrderByDeclencheeAtDesc(
             TypeAlerte type, Long entrepotId, java.util.Collection<StatutAlerte> statuts);
+
+    List<Alerte> findByTypeAndStatut(TypeAlerte type, StatutAlerte statut);
+
 }
