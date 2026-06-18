@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.futurekawa.pays.notification.service.NotificationService;
 import java.time.Instant;
 import java.util.List;
+import com.futurekawa.pays.alerte.dto.AlerteDto;
+
 
 import org.springframework.scheduling.annotation.Scheduled;
 @Service
@@ -120,4 +122,39 @@ public class AlerteService {
 
     }
 
+    @Transactional(readOnly = true)
+    public List<AlerteDto> listerAlertes(StatutAlerte statut, TypeAlerte type) {
+        return alerteRepository.rechercher(statut, type).stream()
+                .map(this::toDto).toList();
+    }
+
+    private AlerteDto toDto(Alerte a) {
+        return new AlerteDto(
+                a.getId(),
+                a.getType().name(),
+                a.getStatut().name(),
+                a.getEntrepot() != null ? a.getEntrepot().getId() : null,
+                a.getLot() != null ? a.getLot().getId() : null,
+                a.getLot() != null ? a.getLot().getReference() : null,
+                a.getMessage(),
+                a.getValeurTemperature(),
+                a.getValeurHumidite(),
+                a.getDeclencheeAt(),
+                a.isEmailEnvoye()
+        );
+    }
+
+    @Transactional
+    public AlerteDto resoudre(Long id) {
+        Alerte alerte = alerteRepository.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Alerte introuvable"));
+
+        if (alerte.getStatut() == StatutAlerte.RESOLUE) {
+            return toDto(alerte); // déjà résolue, rien à faire
+        }
+        alerte.setStatut(StatutAlerte.RESOLUE);
+        alerte.setResolueAt(java.time.Instant.now());
+        return toDto(alerte); // sauvegarde automatique en fin de transaction (entité suivie)
+    }
 }
