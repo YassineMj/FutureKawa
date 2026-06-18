@@ -63,4 +63,21 @@ public class ApiController {
                                                      @PathVariable Long entrepotId) {
         return consolidation.consoliderPays(code, "/entrepots/" + entrepotId + "/mesures");
     }
+
+    @GetMapping("/pays/{code}/exploitations")
+    public List<Map<String, Object>> exploitations(@PathVariable String code) {
+        return consolidation.consoliderPays(code, "/exploitations");
+    }
+
+    @GetMapping("/pays/{code}/exploitations/{expId}/entrepots")
+    public List<Map<String, Object>> entrepots(@PathVariable String code,
+                                               @PathVariable Long expId) {
+        return consolidation.consoliderPays(code, "/exploitations/" + expId + "/entrepots");
+    }
+
+    @GetMapping("/pays/{code}/entrepots/{entrepotId}/capteurs")
+    public List<Map<String, Object>> capteurs(@PathVariable String code,
+                                              @PathVariable Long entrepotId) {
+        return consolidation.consoliderPays(code, "/entrepots/" + entrepotId + "/capteurs");
+    }
 }

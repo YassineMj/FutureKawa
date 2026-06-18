@@ -5,6 +5,8 @@ import com.futurekawa.pays.referentiel.dto.ExploitationDto;
 import com.futurekawa.pays.referentiel.service.ReferentielService;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import com.futurekawa.pays.referentiel.dto.CapteurDto;
+
 
 @RestController
 @RequestMapping("/exploitations")
@@ -25,4 +27,5 @@ public class ReferentielController {
     public List<EntrepotDto> listerEntrepots(@PathVariable Long id) {
         return referentielService.listerEntrepots(id);
     }
+
 }
