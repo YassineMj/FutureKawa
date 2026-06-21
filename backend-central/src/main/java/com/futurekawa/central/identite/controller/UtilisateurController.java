@@ -53,4 +53,11 @@ public class UtilisateurController {
         return service.changerRole(id, req.role());
     }
 
+    @org.springframework.web.bind.annotation.DeleteMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('SUPER_ADMIN')")
+    public java.util.Map<String, String> supprimer(
+            @org.springframework.web.bind.annotation.PathVariable Long id) {
+        service.supprimer(id);
+        return java.util.Map.of("message", "Utilisateur supprimé");
+    }
 }

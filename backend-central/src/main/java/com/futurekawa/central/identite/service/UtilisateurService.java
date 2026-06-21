@@ -159,4 +159,26 @@ public class UtilisateurService {
             }
         }
     }
+
+    @Transactional
+    public void supprimer(Long id) {
+        Utilisateur u = trouver(id);
+
+        // garde-fou 1 : on ne supprime pas son propre compte
+        String emailCourant = isolation.utilisateurCourant().email();
+        if (u.getEmail().equalsIgnoreCase(emailCourant)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Vous ne pouvez pas supprimer votre propre compte");
+        }
+        // garde-fou 2 : on protège le compte technique du simulateur
+        if ("simulateur@futurekawa.example".equalsIgnoreCase(u.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Le compte technique du simulateur ne peut pas être supprimé");
+        }
+
+        String emailCible = u.getEmail();
+        String paysCible = u.getPays();
+        utilisateurRepository.delete(u);
+        auditService.tracer("USER_DELETE", "utilisateur " + emailCible, paysCible, "OK");
+    }
 }
