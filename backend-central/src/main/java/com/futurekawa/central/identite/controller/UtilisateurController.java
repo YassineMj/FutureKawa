@@ -52,4 +52,5 @@ public class UtilisateurController {
             com.futurekawa.central.identite.dto.ChangerRoleRequest req) {
         return service.changerRole(id, req.role());
     }
+
 }
