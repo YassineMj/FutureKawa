@@ -203,7 +203,11 @@ public class AlerteService {
                 a.getValeurTemperature(),
                 a.getValeurHumidite(),
                 a.getDeclencheeAt(),
-                a.isEmailEnvoye()
+                a.isEmailEnvoye(),
+                a.getNbNotifications(),
+                a.getAcquitteeAt(),
+                a.getResolueAt(),
+                a.getModeResolution()
         );
     }
 
@@ -243,5 +247,21 @@ public class AlerteService {
                         alerte.getEntrepot().getId(), alerte.getNbNotifications());
             }
         }
+    }
+
+    @Transactional
+    public AlerteDto acquitter(Long id) {
+        Alerte alerte = alerteRepository.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Alerte introuvable"));
+
+        if (alerte.getStatut() != StatutAlerte.ACTIVE) {
+            // on n'acquitte qu'un incident ACTIVE (pas un déjà résolu ou déjà acquitté)
+            return toDto(alerte);
+        }
+        alerte.setStatut(StatutAlerte.ACQUITTEE);
+        alerte.setAcquitteeAt(Instant.now());
+        log.info("Alerte {} acquittée (entrepot {})", id, alerte.getEntrepot().getId());
+        return toDto(alerte);
     }
 }

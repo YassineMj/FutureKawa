@@ -62,7 +62,20 @@ services:
     volumes:
       - pgdata_co:/var/lib/postgresql/data
 
+  postgres-identite:
+    image: postgres:17
+    container_name: fk-postgres-identite
+    environment:
+      POSTGRES_DB: identite
+      POSTGRES_USER: futurekawa
+      POSTGRES_PASSWORD: changeme
+    ports:
+      - "5440:5432"
+    volumes:
+      - pgdata_identite:/var/lib/postgresql/data
+
 volumes:
   pgdata:
   pgdata_ec:
   pgdata_co:
+  pgdata_identite:

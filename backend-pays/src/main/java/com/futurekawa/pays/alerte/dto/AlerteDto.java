@@ -13,5 +13,9 @@ public record AlerteDto(
         Double valeurTemperature,
         Double valeurHumidite,
         Instant declencheeAt,
-        boolean emailEnvoye
+        boolean emailEnvoye,
+        int nbNotifications,
+        Instant acquitteeAt,
+        Instant resolueAt,
+        String modeResolution
 ) {}

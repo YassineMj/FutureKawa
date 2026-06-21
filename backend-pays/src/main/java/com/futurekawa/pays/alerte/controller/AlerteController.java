@@ -30,4 +30,9 @@ public class AlerteController {
     public AlerteDto resoudre(@org.springframework.web.bind.annotation.PathVariable Long id) {
         return alerteService.resoudre(id);
     }
+
+    @org.springframework.web.bind.annotation.PatchMapping("/alertes/{id}/acquitter")
+    public AlerteDto acquitter(@org.springframework.web.bind.annotation.PathVariable Long id) {
+        return alerteService.acquitter(id);
+    }
 }

@@ -1,6 +1,7 @@
 package com.futurekawa.central.controller;
 
 import com.futurekawa.central.dto.PaysStatutDto;
+import com.futurekawa.central.identite.service.IsolationPaysService;
 import com.futurekawa.central.service.ConsolidationService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,38 +16,55 @@ import java.util.Map;
 public class ApiController {
 
     private final ConsolidationService consolidation;
+    private final IsolationPaysService isolation;
 
-    public ApiController(ConsolidationService consolidation) {
+    public ApiController(ConsolidationService consolidation, IsolationPaysService isolation) {
         this.consolidation = consolidation;
+        this.isolation = isolation;
     }
 
-    /** Liste des pays et leur disponibilité. */
+    /** Liste des pays et leur disponibilité (filtrée selon le périmètre). */
     @GetMapping("/pays")
     public List<PaysStatutDto> pays() {
-        return consolidation.statutPays();
+        List<PaysStatutDto> tous = consolidation.statutPays();
+        if (isolation.peutVoirTousLesPays()) {
+            return tous;
+        }
+        String monPays = isolation.paysDeLUtilisateur();
+        return tous.stream()
+                .filter(p -> p.code().equalsIgnoreCase(monPays))
+                .toList();
     }
 
-    /** Tous les lots, tous pays confondus. */
+    /** Tous les lots (super admin) ou ceux de son pays (admin pays). */
     @GetMapping("/lots")
     public List<Map<String, Object>> lots() {
-        return consolidation.consoliderTous("/lots");
+        if (isolation.peutVoirTousLesPays()) {
+            return consolidation.consoliderTous("/lots");
+        }
+        return consolidation.consoliderPays(isolation.paysDeLUtilisateur(), "/lots");
     }
 
-    /** Toutes les alertes, tous pays confondus. */
+    /** Toutes les alertes (super admin) ou celles de son pays (admin pays). */
     @GetMapping("/alertes")
     public List<Map<String, Object>> alertes() {
-        return consolidation.consoliderTous("/alertes");
+        if (isolation.peutVoirTousLesPays()) {
+            return consolidation.consoliderTous("/alertes");
+        }
+        return consolidation.consoliderPays(isolation.paysDeLUtilisateur(), "/alertes");
     }
 
     /** Lots d'un pays précis. */
     @GetMapping("/pays/{code}/lots")
     public List<Map<String, Object>> lotsPays(@PathVariable String code) {
+        isolation.verifierAcces(code);
         return consolidation.consoliderPays(code, "/lots");
     }
 
     /** Alertes d'un pays précis. */
     @GetMapping("/pays/{code}/alertes")
     public List<Map<String, Object>> alertesPays(@PathVariable String code) {
+        isolation.verifierAcces(code);
         return consolidation.consoliderPays(code, "/alertes");
     }
 
@@ -54,6 +72,7 @@ public class ApiController {
     @GetMapping("/pays/{code}/lots/{lotId}/mesures")
     public List<Map<String, Object>> mesuresLot(@PathVariable String code,
                                                 @PathVariable Long lotId) {
+        isolation.verifierAcces(code);
         return consolidation.consoliderPays(code, "/lots/" + lotId + "/mesures");
     }
 
@@ -61,23 +80,27 @@ public class ApiController {
     @GetMapping("/pays/{code}/entrepots/{entrepotId}/mesures")
     public List<Map<String, Object>> mesuresEntrepot(@PathVariable String code,
                                                      @PathVariable Long entrepotId) {
+        isolation.verifierAcces(code);
         return consolidation.consoliderPays(code, "/entrepots/" + entrepotId + "/mesures");
     }
 
     @GetMapping("/pays/{code}/exploitations")
     public List<Map<String, Object>> exploitations(@PathVariable String code) {
+        isolation.verifierAcces(code);
         return consolidation.consoliderPays(code, "/exploitations");
     }
 
     @GetMapping("/pays/{code}/exploitations/{expId}/entrepots")
     public List<Map<String, Object>> entrepots(@PathVariable String code,
                                                @PathVariable Long expId) {
+        isolation.verifierAcces(code);
         return consolidation.consoliderPays(code, "/exploitations/" + expId + "/entrepots");
     }
 
     @GetMapping("/pays/{code}/entrepots/{entrepotId}/capteurs")
     public List<Map<String, Object>> capteurs(@PathVariable String code,
                                               @PathVariable Long entrepotId) {
+        isolation.verifierAcces(code);
         return consolidation.consoliderPays(code, "/entrepots/" + entrepotId + "/capteurs");
     }
 }
