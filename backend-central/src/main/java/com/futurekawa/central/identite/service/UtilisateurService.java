@@ -113,4 +113,42 @@ public class UtilisateurService {
         utilisateurRepository.save(u);
         return toDto(u);
     }
+
+    @Transactional
+    public UtilisateurDto changerActivation(Long id, boolean actif) {
+        Utilisateur u = trouver(id);
+        verifierPerimetre(u);                 // un admin pays n'agit que sur son périmètre
+        empecherAutoBlocage(u, actif);        // garde-fou (voir plus bas)
+        u.setActif(actif);
+        return toDto(u);
+    }
+
+    @Transactional
+    public UtilisateurDto changerRole(Long id, String codeRole) {
+        Utilisateur u = trouver(id);
+        verifierPerimetre(u);
+
+        Role role = roleRepository.findByCode(codeRole)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Rôle inconnu : " + codeRole));
+
+        // un admin pays ne peut pas attribuer le rôle SUPER_ADMIN
+        if (!isolation.peutVoirTousLesPays() && "SUPER_ADMIN".equalsIgnoreCase(codeRole)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Vous ne pouvez pas attribuer le rôle super administrateur");
+        }
+        u.remplacerRole(role);                // on remplace les rôles par le nouveau
+        return toDto(u);
+    }
+
+    /** Empêche un admin de se désactiver lui-même (évite de se verrouiller dehors). */
+    private void empecherAutoBlocage(Utilisateur cible, boolean actif) {
+        if (!actif) {
+            String emailCourant = isolation.utilisateurCourant().email();
+            if (cible.getEmail().equalsIgnoreCase(emailCourant)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Vous ne pouvez pas désactiver votre propre compte");
+            }
+        }
+    }
 }

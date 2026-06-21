@@ -34,4 +34,22 @@ public class UtilisateurController {
             com.futurekawa.central.identite.dto.CreerUtilisateurRequest req) {
         return service.creer(req);
     }
+
+    @org.springframework.web.bind.annotation.PatchMapping("/{id}/desactiver")
+    public UtilisateurDto desactiver(@org.springframework.web.bind.annotation.PathVariable Long id) {
+        return service.changerActivation(id, false);
+    }
+
+    @org.springframework.web.bind.annotation.PatchMapping("/{id}/activer")
+    public UtilisateurDto activer(@org.springframework.web.bind.annotation.PathVariable Long id) {
+        return service.changerActivation(id, true);
+    }
+
+    @org.springframework.web.bind.annotation.PatchMapping("/{id}/role")
+    public UtilisateurDto changerRole(
+            @org.springframework.web.bind.annotation.PathVariable Long id,
+            @org.springframework.web.bind.annotation.RequestBody
+            com.futurekawa.central.identite.dto.ChangerRoleRequest req) {
+        return service.changerRole(id, req.role());
+    }
 }

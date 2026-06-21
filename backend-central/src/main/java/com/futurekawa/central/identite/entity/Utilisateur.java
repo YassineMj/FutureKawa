@@ -65,4 +65,11 @@ public class Utilisateur {
         this.tentativesEchouees = 0;
         this.roles.add(role);
     }
+
+    public void setActif(boolean actif) { this.actif = actif; }
+
+    public void remplacerRole(Role role) {
+        this.roles.clear();
+        this.roles.add(role);
+    }
 }
