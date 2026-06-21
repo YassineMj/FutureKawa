@@ -18,14 +18,17 @@ public class UtilisateurService {
     private final UtilisateurRepository utilisateurRepository;
     private final IsolationPaysService isolation;
     private final RoleRepository roleRepository;
+
+    private final AuditService auditService;
     private final org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder =
             new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
 
     public UtilisateurService(UtilisateurRepository utilisateurRepository,
-                              IsolationPaysService isolation, RoleRepository roleRepository) {
+                              IsolationPaysService isolation, RoleRepository roleRepository, AuditService auditService) {
         this.utilisateurRepository = utilisateurRepository;
         this.isolation = isolation;
         this.roleRepository = roleRepository;
+        this.auditService = auditService;
     }
 
     /** Liste filtrée : super admin voit tout, admin pays voit son pays uniquement. */
@@ -111,6 +114,7 @@ public class UtilisateurService {
                 encoder.encode(req.motDePasse()),
                 req.nom(), req.prenom(), pays, role);
         utilisateurRepository.save(u);
+        auditService.tracer("USER_CREATE", "utilisateur " + u.getEmail(), u.getPays(), "OK");
         return toDto(u);
     }
 
@@ -120,6 +124,8 @@ public class UtilisateurService {
         verifierPerimetre(u);                 // un admin pays n'agit que sur son périmètre
         empecherAutoBlocage(u, actif);        // garde-fou (voir plus bas)
         u.setActif(actif);
+        auditService.tracer(actif ? "USER_ACTIVER" : "USER_DESACTIVER",
+                "utilisateur " + u.getEmail(), u.getPays(), "OK");
         return toDto(u);
     }
 
@@ -138,6 +144,8 @@ public class UtilisateurService {
                     "Vous ne pouvez pas attribuer le rôle super administrateur");
         }
         u.remplacerRole(role);                // on remplace les rôles par le nouveau
+        auditService.tracer("USER_CHANGER_ROLE",
+                "utilisateur " + u.getEmail() + " -> " + codeRole, u.getPays(), "OK");
         return toDto(u);
     }
 
