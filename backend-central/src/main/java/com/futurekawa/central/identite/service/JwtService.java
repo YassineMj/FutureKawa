@@ -38,4 +38,23 @@ public class JwtService {
                 .expiration(Date.from(maintenant.plus(Duration.ofMinutes(accesMinutes))))                .signWith(cle)
                 .compact();
     }
+
+    // --- Refresh token (chaîne aléatoire opaque) ---
+
+    public String genererRefreshBrut() {
+        byte[] bytes = new byte[48];
+        new java.security.SecureRandom().nextBytes(bytes);
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    /** Hash SHA-256 du refresh (on ne stocke jamais la valeur en clair). */
+    public String hacher(String valeur) {
+        try {
+            var md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] h = md.digest(valeur.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(h);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
 }

@@ -17,7 +17,33 @@ public class AuthController {
 
     @PostMapping("/login")
     public LoginResponse login(@RequestBody LoginRequest req) {
-        String token = authService.login(req.email(), req.motDePasse());
-        return new LoginResponse(token, "Bearer");
+        String[] jetons = authService.login(req.email(), req.motDePasse());
+        return new LoginResponse(jetons[0], jetons[1], "Bearer");
+    }
+
+    @PostMapping("/refresh")
+    public LoginResponse refresh(
+            @RequestBody com.futurekawa.central.identite.dto.RefreshRequest req) {
+        String[] jetons = authService.refresh(req.refreshToken());
+        return new LoginResponse(jetons[0], jetons[1], "Bearer");
+    }
+
+    @PostMapping("/logout")
+    public java.util.Map<String, String> logout(
+            @RequestBody com.futurekawa.central.identite.dto.RefreshRequest req) {
+        authService.logout(req.refreshToken());
+        return java.util.Map.of("message", "Déconnecté");
+    }
+
+    @GetMapping("/me")
+    public java.util.Map<String, Object> me(
+            org.springframework.security.core.Authentication auth) {
+        var principal = (com.futurekawa.central.identite.service.UtilisateurAuthentifie) auth.getPrincipal();
+        return java.util.Map.of(
+                "id", principal.id(),
+                "email", principal.email(),
+                "pays", principal.pays(),
+                "roles", principal.roles()
+        );
     }
 }

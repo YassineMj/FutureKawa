@@ -36,6 +36,7 @@ app:
   securite:
     jwt-secret: ${JWT_SECRET:un-secret-de-demo-tres-long-a-changer-en-production-32+caracteres}
     acces-token-minutes: 15
+    refresh-token-jours: 7
 
 
 springdoc:
