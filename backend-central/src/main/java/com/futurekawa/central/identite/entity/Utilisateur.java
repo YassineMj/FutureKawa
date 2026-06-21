@@ -52,4 +52,17 @@ public class Utilisateur {
     public Instant getVerrouilleJusquA() { return verrouilleJusquA; }
     public void setVerrouilleJusquA(Instant v) { this.verrouilleJusquA = v; }
     public Set<Role> getRoles() { return roles; }
+
+    public void appliquerCreation(String email, String motDePasseHash, String nom,
+                                  String prenom, String pays, Role role) {
+        this.email = email;
+        this.motDePasseHash = motDePasseHash;
+        this.nom = nom;
+        this.prenom = prenom;
+        this.pays = pays;
+        this.actif = true;
+        this.dateCreation = java.time.Instant.now();
+        this.tentativesEchouees = 0;
+        this.roles.add(role);
+    }
 }

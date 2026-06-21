@@ -3,6 +3,7 @@ package com.futurekawa.central.identite.service;
 import com.futurekawa.central.identite.dto.UtilisateurDto;
 import com.futurekawa.central.identite.entity.Role;
 import com.futurekawa.central.identite.entity.Utilisateur;
+import com.futurekawa.central.identite.repository.RoleRepository;
 import com.futurekawa.central.identite.repository.UtilisateurRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -16,11 +17,15 @@ public class UtilisateurService {
 
     private final UtilisateurRepository utilisateurRepository;
     private final IsolationPaysService isolation;
+    private final RoleRepository roleRepository;
+    private final org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder encoder =
+            new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
 
     public UtilisateurService(UtilisateurRepository utilisateurRepository,
-                              IsolationPaysService isolation) {
+                              IsolationPaysService isolation, RoleRepository roleRepository) {
         this.utilisateurRepository = utilisateurRepository;
         this.isolation = isolation;
+        this.roleRepository = roleRepository;
     }
 
     /** Liste filtrée : super admin voit tout, admin pays voit son pays uniquement. */
@@ -61,5 +66,51 @@ public class UtilisateurService {
                 u.getId(), u.getEmail(), u.getNom(), u.getPrenom(),
                 u.getPays(), u.isActif(), u.getDerniereConnexion(),
                 u.getRoles().stream().map(Role::getCode).toList());
+    }
+
+    @Transactional
+    public UtilisateurDto creer(com.futurekawa.central.identite.dto.CreerUtilisateurRequest req) {
+        // 1. email unique
+        if (utilisateurRepository.existsByEmail(req.email())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cet email est déjà utilisé");
+        }
+
+        // 2. le rôle demandé doit exister
+        Role role = roleRepository.findByCode(req.role())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Rôle inconnu : " + req.role()));
+
+        // 3. règles de périmètre pour un admin pays (non super admin)
+        if (!isolation.peutVoirTousLesPays()) {
+            String monPays = isolation.paysDeLUtilisateur();
+            // un admin pays ne crée que dans SON pays
+            if (req.pays() == null || !req.pays().equalsIgnoreCase(monPays)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Vous ne pouvez créer un compte que dans votre pays (" + monPays + ")");
+            }
+            // ... et ne peut pas fabriquer un super admin
+            if ("SUPER_ADMIN".equalsIgnoreCase(req.role())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                        "Vous ne pouvez pas créer de super administrateur");
+            }
+        }
+
+        // 4. cohérence : SUPER_ADMIN => pays null ; les autres => un pays obligatoire
+        String pays = req.pays();
+        if ("SUPER_ADMIN".equalsIgnoreCase(req.role())) {
+            pays = null;
+        } else if (pays == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Un pays est obligatoire pour ce rôle");
+        }
+
+        // 5. création + hachage bcrypt
+        Utilisateur u = new Utilisateur();
+        u.appliquerCreation(
+                req.email(),
+                encoder.encode(req.motDePasse()),
+                req.nom(), req.prenom(), pays, role);
+        utilisateurRepository.save(u);
+        return toDto(u);
     }
 }

@@ -27,4 +27,11 @@ public class UtilisateurController {
     public UtilisateurDto parId(@PathVariable Long id) {
         return service.parId(id);
     }
+
+    @org.springframework.web.bind.annotation.PostMapping
+    public UtilisateurDto creer(
+            @org.springframework.web.bind.annotation.RequestBody
+            com.futurekawa.central.identite.dto.CreerUtilisateurRequest req) {
+        return service.creer(req);
+    }
 }
