@@ -20,6 +20,8 @@
 #define MQTT_PORT       1883                  // port MQTT par defaut (non chiffre)
 
 // --- Topic de publication ---
-#define MQTT_TOPIC      "futurekawa/BR/entrepot/1/mesures"
+// Convention du back-end : futurekawa/<pays-minuscule>/<entrepotId>/mesures
+// Exemple : Bresil, entrepot 1. Doit matcher l'abonnement backend futurekawa/bresil/+/mesures.
+#define MQTT_TOPIC      "futurekawa/bresil/1/mesures"
 
 #endif // CONFIG_H
