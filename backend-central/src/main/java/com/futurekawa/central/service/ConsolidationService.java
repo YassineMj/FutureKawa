@@ -74,4 +74,16 @@ public class ConsolidationService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Pays inconnu : " + code));
     }
+
+    /** Relaie une action PATCH (acquitter/résoudre) vers le back-end du pays. */
+    public Map<String, Object> actionPays(String code, String path) {
+        PaysProperties.Pays p = trouverPays(code);
+        return client.patch(p.getUrl(), path);
+    }
+
+    /** Relaie une création (POST) vers le back-end du pays. */
+    public Map<String, Object> creerDansPays(String code, String path, Object corps) {
+        PaysProperties.Pays p = trouverPays(code);
+        return client.post(p.getUrl(), path, corps);
+    }
 }

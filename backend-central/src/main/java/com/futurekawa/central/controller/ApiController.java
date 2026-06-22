@@ -103,4 +103,23 @@ public class ApiController {
         isolation.verifierAcces(code);
         return consolidation.consoliderPays(code, "/entrepots/" + entrepotId + "/capteurs");
     }
+
+    @org.springframework.web.bind.annotation.PatchMapping("/pays/{code}/alertes/{id}/acquitter")
+    public Map<String, Object> acquitterAlerte(@PathVariable String code, @PathVariable Long id) {
+        isolation.verifierAcces(code);
+        return consolidation.actionPays(code, "/alertes/" + id + "/acquitter");
+    }
+
+    @org.springframework.web.bind.annotation.PatchMapping("/pays/{code}/alertes/{id}/resoudre")
+    public Map<String, Object> resoudreAlerte(@PathVariable String code, @PathVariable Long id) {
+        isolation.verifierAcces(code);
+        return consolidation.actionPays(code, "/alertes/" + id + "/resoudre");
+    }
+
+    @org.springframework.web.bind.annotation.PostMapping("/pays/{code}/lots")
+    public Map<String, Object> creerLot(@PathVariable String code,
+                                        @org.springframework.web.bind.annotation.RequestBody Map<String, Object> lot) {
+        isolation.verifierAcces(code);
+        return consolidation.creerDansPays(code, "/lots", lot);
+    }
 }

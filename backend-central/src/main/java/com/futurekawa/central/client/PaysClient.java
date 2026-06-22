@@ -39,4 +39,20 @@ public class PaysClient {
             return false;
         }
     }
+
+    public Map<String, Object> patch(String baseUrl, String path) {
+        return restClient.patch()
+                .uri(baseUrl + path)
+                .retrieve()
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+    }
+
+    /** Envoie un POST avec corps JSON à un back-end pays (ex. /lots). */
+    public Map<String, Object> post(String baseUrl, String path, Object corps) {
+        return restClient.post()
+                .uri(baseUrl + path)
+                .body(corps)
+                .retrieve()
+                .body(new ParameterizedTypeReference<Map<String, Object>>() {});
+    }
 }
