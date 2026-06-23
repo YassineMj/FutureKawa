@@ -1,12 +1,12 @@
 # ============================================================
 #  FutureKawa — Stack complet (back-end + infra + simulateur)
-#  Lance TOUT le système avec : docker compose up -d --build
+#  Lancer TOUT le système :  docker compose -f docker-compose.full.yml up -d --build
 # ============================================================
-# Réseau commun : les conteneurs se résolvent par leur nom
-# (ex. le central appelle http://fk-pays-bresil:8080).
-# IMPORTANT : à l'intérieur du réseau Docker, toutes les bases
-# PostgreSQL écoutent sur le port 5432. Les ports 5433/5434/5440
-# ne servent qu'à un accès depuis votre machine (hôte).
+#  Les conteneurs se résolvent par leur nom (ex. le central
+#  appelle http://fk-pays-bresil:8080).
+#  À l'intérieur du réseau Docker, TOUTES les bases PostgreSQL
+#  écoutent sur 5432. Les ports 5433/5434/5440 ne servent qu'à
+#  un accès depuis votre machine (hôte).
 # ============================================================
 
 name: futurekawa
@@ -82,22 +82,29 @@ services:
     volumes:
       - ./infra/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
 
-  fk-mailpit:                        # Faux serveur SMTP (emails de test)
+  fk-mailpit:                        # Faux SMTP (emails de test)
     image: axllent/mailpit:latest
     container_name: fk-mailpit
     ports:
       - "1025:1025"                  # SMTP
-      - "8025:8025"                  # Interface web des e-mails
+      - "8025:8025"                  # Interface web
 
   # ---------------- BACK-ENDS PAYS ----------------
+  # NB : on garde les profils equateur/colombie (seeds, seuils, topic,
+  # port, e-mail) et on surcharge SEULEMENT la datasource + le MQTT
+  # via des variables PRIORITAIRES (sinon les profils réécrivent
+  # ces valeurs en "localhost").
   fk-pays-bresil:
     build: { context: ./backend-pays }
     container_name: fk-pays-bresil
     environment:
-      SPRING_PROFILES_ACTIVE: dev,docker
+      SPRING_PROFILES_ACTIVE: dev
       SPRING_DATASOURCE_URL: jdbc:postgresql://fk-postgres:5432/futurekawa
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-futurekawa}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-futurekawa}
+      APP_MQTT_BROKERURL: tcp://fk-mosquitto:1883
+      MAIL_HOST: fk-mailpit
+      MAIL_PORT: "1025"
     ports: ["8080:8080"]
     depends_on:
       fk-postgres: { condition: service_healthy }
@@ -108,10 +115,13 @@ services:
     build: { context: ./backend-pays }
     container_name: fk-pays-equateur
     environment:
-      SPRING_PROFILES_ACTIVE: dev,equateur,docker
+      SPRING_PROFILES_ACTIVE: dev,equateur
       SPRING_DATASOURCE_URL: jdbc:postgresql://fk-postgres-ec:5432/futurekawa
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-futurekawa}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-futurekawa}
+      APP_MQTT_BROKERURL: tcp://fk-mosquitto:1883
+      MAIL_HOST: fk-mailpit
+      MAIL_PORT: "1025"
     ports: ["8081:8081"]
     depends_on:
       fk-postgres-ec: { condition: service_healthy }
@@ -122,10 +132,13 @@ services:
     build: { context: ./backend-pays }
     container_name: fk-pays-colombie
     environment:
-      SPRING_PROFILES_ACTIVE: dev,colombie,docker
+      SPRING_PROFILES_ACTIVE: dev,colombie
       SPRING_DATASOURCE_URL: jdbc:postgresql://fk-postgres-co:5432/futurekawa
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-futurekawa}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-futurekawa}
+      APP_MQTT_BROKERURL: tcp://fk-mosquitto:1883
+      MAIL_HOST: fk-mailpit
+      MAIL_PORT: "1025"
     ports: ["8082:8082"]
     depends_on:
       fk-postgres-co: { condition: service_healthy }
@@ -138,9 +151,9 @@ services:
     container_name: fk-central
     environment:
       SPRING_PROFILES_ACTIVE: docker
-      SPRING_DATASOURCE_URL: jdbc:postgresql://fk-postgres-identite:5432/identite
-      SPRING_DATASOURCE_USERNAME: ${DB_USER:-futurekawa}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-futurekawa}
+      IDENTITE_DB_URL: jdbc:postgresql://fk-postgres-identite:5432/identite
+      IDENTITE_DB_USER: ${DB_USER:-futurekawa}
+      IDENTITE_DB_PASSWORD: ${DB_PASSWORD:-futurekawa}
       JWT_SECRET: ${JWT_SECRET:-changez-moi-en-production-secret-de-32-caracteres-minimum}
     ports: ["8090:8090"]
     depends_on:
