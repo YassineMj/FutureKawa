@@ -49,11 +49,34 @@
   .run a { color: var(--warn); cursor: pointer; text-decoration: underline; }
   canvas { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
   .err { color: var(--warn); font-size: 13px; margin-top: 10px; min-height: 18px; }
+  .reel-card { margin-bottom: 20px; border-color: var(--accent2); }
+  .reel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+  .reel-title { font-weight: 600; }
+  .reel-badge { font-size: 11px; color: #04223a; background: var(--accent2); padding: 2px 8px; border-radius: 10px; margin-left: 8px; }
+  .reel-live { margin-bottom: 0; }
+  .reel-foot { margin-top: 12px; }
 </style>
 </head>
 <body>
   <h1>☕ FutureKawa — Simulateur de capteurs</h1>
   <div class="sub">Génère des mesures (température / humidité) et les publie en MQTT, comme un capteur réel.</div>
+
+  <!-- Capteur RÉEL (ESP8266) — entrepôt 1 : reflète UNIQUEMENT le vrai capteur, jamais de simulation -->
+  <div class="card reel-card" id="reelCard">
+    <div class="reel-head">
+      <div>
+        <span class="reel-title">🛰️ Capteur réel — Entrepot Sud (entrepôt 1)</span>
+        <span class="reel-badge">RÉEL</span>
+      </div>
+      <span class="status"><span class="dot" id="reelDot"></span><span id="reelStatus">En attente du capteur…</span></span>
+    </div>
+    <div class="live reel-live">
+      <div class="metric"><div class="val" id="reelTemp">--</div><div class="lbl">Température °C</div></div>
+      <div class="metric"><div class="val" id="reelHum">--</div><div class="lbl">Humidité %</div></div>
+      <div class="metric"><div class="val" id="reelCount">0</div><div class="lbl">Mesures reçues</div></div>
+    </div>
+    <div class="lbl reel-foot">Dernière réception : <span id="reelTime">—</span> · topic <code id="reelTopic">—</code></div>
+  </div>
 
   <div class="grid">
     <!-- Panneau de configuration -->
@@ -250,9 +273,43 @@ function initChart() {
   });
 }
 
+// --- Affichage du capteur RÉEL (entrepôt 1) --------------------------------
+// Lecture seule : on n'affiche que ce que le vrai ESP8266 publie.
+async function pollReel() {
+  try {
+    const r = await jget("/api/capteur-reel");
+    document.getElementById("reelTopic").textContent = r.topic;
+    const dot = document.getElementById("reelDot");
+    const st = document.getElementById("reelStatus");
+
+    if (r.temperature === null) {           // aucune mesure encore reçue
+      dot.className = "dot";
+      st.textContent = "En attente du capteur…";
+      return;
+    }
+
+    document.getElementById("reelTemp").textContent = r.temperature;
+    document.getElementById("reelHum").textContent = r.humidite;
+    document.getElementById("reelCount").textContent = r.compteur;
+    document.getElementById("reelTime").textContent = new Date(r.recuAt).toLocaleTimeString();
+
+    // Le capteur publie toutes les 30 s : au-delà de 90 s sans message, on le dit hors ligne.
+    const ageMs = Date.now() - new Date(r.recuAt).getTime();
+    if (ageMs > 90000) {
+      dot.className = "dot"; st.textContent = "Hors ligne (pas de mesure récente)";
+    } else if (r.horsPlage) {
+      dot.className = "dot warn"; st.textContent = "Hors plage → alerte attendue";
+    } else {
+      dot.className = "dot ok"; st.textContent = "En ligne · conditions normales";
+    }
+  } catch (e) { /* ignore les erreurs ponctuelles de polling */ }
+}
+
 initChart();
 initPays();
 setInterval(poll, 1000);
+setInterval(pollReel, 1000);
+pollReel();
 </script>
 </body>
 </html>

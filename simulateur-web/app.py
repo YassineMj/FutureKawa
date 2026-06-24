@@ -237,6 +237,82 @@ def etat():
 
 
 # ---------------------------------------------------------------------------
+# Capteur RÉEL (ESP8266) — entrepôt 1
+# ---------------------------------------------------------------------------
+# Ici on N'INVENTE RIEN : on s'abonne au topic du vrai capteur et on affiche
+# strictement ce qu'il publie. Si le capteur lit 25 °C / 58 %, on montre 25/58.
+#
+# Garde-fou : le vrai capteur publie SANS "capteurId" (il envoie seulement
+# {temperature, humidite}), alors que le simulateur inclut toujours un capteurId.
+# On ne retient donc QUE les messages sans capteurId -> impossible d'afficher
+# par erreur une mesure simulée sur ce panneau.
+REEL_PAYS = "bresil"
+REEL_ENTREPOT_ID = 1
+REEL_TOPIC = f"futurekawa/{REEL_PAYS}/{REEL_ENTREPOT_ID}/mesures"
+
+_capteur_reel = {
+    "temperature": None,
+    "humidite": None,
+    "horsPlage": None,
+    "recuAt": None,     # horodatage de réception (ISO 8601)
+    "compteur": 0,
+}
+_reel_lock = threading.Lock()
+
+
+def _on_message_reel(client, userdata, msg):
+    """Appelé à chaque message reçu sur le topic du vrai capteur."""
+    try:
+        data = json.loads(msg.payload.decode("utf-8"))
+    except Exception:
+        return
+    # On ignore tout message portant un capteurId (= venant du simulateur).
+    if data.get("capteurId") is not None:
+        return
+    temp = data.get("temperature")
+    hum = data.get("humidite")
+    if temp is None or hum is None:
+        return
+
+    # Bande acceptable du pays (±3 °C / ±2 %) — uniquement pour le voyant d'état.
+    ideal_temp, ideal_hum = IDEAUX.get(REEL_PAYS.upper(), (29.0, 55.0))
+    hors_plage = abs(temp - ideal_temp) > 3 or abs(hum - ideal_hum) > 2
+
+    with _reel_lock:
+        _capteur_reel["temperature"] = temp
+        _capteur_reel["humidite"] = hum
+        _capteur_reel["horsPlage"] = hors_plage
+        _capteur_reel["recuAt"] = datetime.now(timezone.utc).isoformat()
+        _capteur_reel["compteur"] += 1
+
+
+@app.on_event("startup")
+def _demarrer_abonnement_reel():
+    """Connecte un client MQTT abonné au vrai capteur, au démarrage de l'app."""
+    client = mqtt.Client()
+    # à la (re)connexion, on (re)souscrit au topic du capteur réel
+    client.on_connect = lambda c, u, flags, rc: c.subscribe(REEL_TOPIC, qos=1)
+    client.on_message = _on_message_reel
+    try:
+        client.connect(MQTT_HOST, MQTT_PORT, 60)
+        client.loop_start()   # boucle réseau dans un thread dédié
+        print(f"[capteur-reel] abonné à {REEL_TOPIC}")
+    except Exception as e:
+        print(f"[capteur-reel] abonnement MQTT impossible : {e}")
+
+
+@app.get("/api/capteur-reel")
+def capteur_reel():
+    """Dernière mesure publiée par le VRAI capteur de l'entrepôt 1 (lecture seule)."""
+    with _reel_lock:
+        return {
+            "entrepotId": REEL_ENTREPOT_ID,
+            "topic": REEL_TOPIC,
+            **_capteur_reel,
+        }
+
+
+# ---------------------------------------------------------------------------
 # Page web
 # ---------------------------------------------------------------------------
 @app.get("/")
