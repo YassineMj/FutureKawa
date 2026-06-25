@@ -172,6 +172,9 @@ services:
       MQTT_PORT: "1883"
       SIM_EMAIL: simulateur@futurekawa.example
       SIM_PASSWORD: Admin123!
+    volumes:
+      - ./simulateur-web:/app
+    command: uvicorn app:app --host 0.0.0.0 --port 8050 --reload
     ports: ["8050:8050"]
     depends_on:
       fk-central: { condition: service_started }
