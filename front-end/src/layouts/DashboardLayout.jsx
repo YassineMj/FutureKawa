@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import Sidebar from '../components/Sidebar';
-import { Menu } from 'lucide-react';
+import { Menu, LogOut } from 'lucide-react';
+import { useAuth, userInitials, userDisplayName, userRoleLabel } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { superAdminNav, adminPaysNav, employeeNav } from '../config/navigation';
 
 export default function DashboardLayout({
   children,
@@ -9,17 +12,36 @@ export default function DashboardLayout({
   topTabs = [],
   activeTab = 'all',
   onTabChange = () => {},
-  user = {
-    initials: 'SA',
-    name: 'Super Admin',
-    role: 'Siège · tous pays',
-  },
+  user: userProp,
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { user: authUser, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const resolvedUser = userProp || {
+    initials: userInitials(authUser),
+    name: userDisplayName(authUser),
+    role: userRoleLabel(authUser),
+  };
+
+  const roles = authUser?.roles || [];
+  const resolvedNavItems = navItems.length > 0 ? navItems : (
+    roles.includes('SUPER_ADMIN') ? superAdminNav :
+    roles.includes('ADMIN_PAYS') ? adminPaysNav :
+    employeeNav
+  );
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login', { replace: true });
+  };
+
+  const handleProfile = () => {
+    navigate('/profil');
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800">
-      {/* Overlay mobile */}
       {isSidebarOpen && (
         <div
           className="fixed inset-0 bg-slate-900/30 z-40 lg:hidden"
@@ -27,10 +49,9 @@ export default function DashboardLayout({
         />
       )}
 
-      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen}  navItems={navItems}/>
+      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} navItems={resolvedNavItems} />
 
       <div className="lg:ml-72 flex flex-col min-h-screen">
-        {/* TOPBAR */}
         <header className="h-20 flex items-center justify-between px-4 sm:px-6 lg:px-8 bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30">
           <div className="flex items-center gap-4">
             <button
@@ -39,14 +60,12 @@ export default function DashboardLayout({
             >
               <Menu className="w-6 h-6" />
             </button>
-
             <span className="text-lg sm:text-xl font-medium text-slate-700">
               {title}
             </span>
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Tabs pays */}
             {topTabs.length > 0 && (
               <div className="hidden md:flex items-center bg-slate-100 border border-slate-200 rounded-full p-1">
                 {topTabs.map((tab) => {
@@ -68,20 +87,25 @@ export default function DashboardLayout({
               </div>
             )}
 
-            {/* User */}
-            <div className="flex items-center gap-3">
+            <button type="button" onClick={handleProfile} className="flex items-center gap-3 rounded-xl px-2 py-1 text-left hover:bg-slate-50 transition">
               <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center border border-emerald-200">
-                {user.initials}
+                {resolvedUser.initials}
               </div>
               <div className="hidden sm:block leading-tight">
-                <div className="font-semibold text-slate-800">{user.name}</div>
-                <div className="text-sm text-slate-400">{user.role}</div>
+                <div className="font-semibold text-slate-800">{resolvedUser.name}</div>
+                <div className="text-sm text-slate-400">{resolvedUser.role}</div>
               </div>
-            </div>
+            </button>
+            <button
+              onClick={handleLogout}
+              title="Se déconnecter"
+              className="ml-1 p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+            >
+              <LogOut size={18} />
+            </button>
           </div>
         </header>
 
-        {/* CONTENT */}
         <main className="flex-1 p-6 lg:p-8 max-w-[1600px] w-full mx-auto">
           {children}
         </main>

@@ -1,41 +1,14 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../layouts/DashboardLayout';
+import { paysApi } from '../services/api';
 
-const countries = [
-  {
-    id: 'brazil',
-    name: 'Brésil',
-    status: 'Disponible',
-    target: '29 °C · 55 %HR',
-    tolerance: '± 3 °C · ± 2 %',
-    lots: 128,
-    sensors: '6/6 en ligne',
-    alerts: '2 actives',
-    alertTone: 'danger',
-  },
-  {
-    id: 'ecuador',
-    name: 'Équateur',
-    status: 'Disponible',
-    target: '31 °C · 60 %HR',
-    tolerance: '± 3 °C · ± 2 %',
-    lots: 94,
-    sensors: '6/6 en ligne',
-    alerts: '0',
-    alertTone: 'neutral',
-  },
-  {
-    id: 'colombia',
-    name: 'Colombie',
-    status: 'Disponible',
-    target: '26 °C · 80 %HR',
-    tolerance: '± 3 °C · ± 2 %',
-    lots: 90,
-    sensors: '5/6 en ligne',
-    alerts: '2 actives',
-    alertTone: 'warn',
-  },
-];
+const TARGETS = {
+  BRESIL: { target: '29 °C · 55 %HR', tolerance: '± 3 °C · ± 2 %' },
+  EQUATEUR: { target: '31 °C · 60 %HR', tolerance: '± 3 °C · ± 2 %' },
+  COLOMBIE: { target: '26 °C · 80 %HR', tolerance: '± 3 °C · ± 2 %' },
+};
+
+const PAYS_LABEL = { BRESIL: 'Brésil', EQUATEUR: 'Équateur', COLOMBIE: 'Colombie' };
 
 function StatusBadge({ children, tone = 'ok' }) {
   const styles =
@@ -64,7 +37,7 @@ function CountryCard({ country }) {
           <h3 className="text-lg font-semibold text-slate-900">
             {country.name}
           </h3>
-          <StatusBadge tone="ok">{country.status}</StatusBadge>
+          <StatusBadge tone={country.statusTone || 'ok'}>{country.status}</StatusBadge>
         </div>
 
         <dl className="grid grid-cols-[110px_1fr] gap-x-4 gap-y-3 text-sm">
@@ -91,14 +64,61 @@ function CountryCard({ country }) {
 }
 
 export default function CountriesManagement() {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      const [countries, lots, alerts] = await Promise.all([
+        paysApi.liste(),
+        paysApi.lots(),
+        paysApi.alertes(),
+      ]);
+
+      if (cancelled) return;
+
+      const nextRows = (countries || []).map((country) => {
+        const code = country.code;
+        const config = TARGETS[code] || {};
+        const activeAlerts = (alerts || []).filter((a) => a.pays === code && a.statut === 'ACTIVE');
+        const countryLots = (lots || []).filter((l) => l.pays === code);
+
+        return {
+          id: code,
+          name: PAYS_LABEL[code] || code,
+          status: country.disponible ? 'Disponible' : 'Indisponible',
+          statusTone: country.disponible ? 'ok' : 'danger',
+          target: config.target || '—',
+          tolerance: config.tolerance || '—',
+          lots: countryLots.length,
+          sensors: 'En suivi',
+          alerts: `${activeAlerts.length} actives`,
+          alertTone: activeAlerts.length > 0 ? 'danger' : 'neutral',
+        };
+      });
+
+      setRows(nextRows);
+    };
+
+    load()
+      .catch((e) => { if (!cancelled) setError(e.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    const interval = setInterval(() => {
+      load().catch(() => null);
+    }, 30000);
+
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
+  const countryCards = useMemo(() => rows, [rows]);
+
   return (
     <DashboardLayout
       title="Pays"
-      user={{
-        initials: 'SA',
-        name: 'Super Admin',
-        role: 'Siège · tous pays',
-      }}
     >
       <div className="mb-8">
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">
@@ -110,11 +130,17 @@ export default function CountriesManagement() {
         </p>
       </div>
 
-      <section className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-        {countries.map((country) => (
+      {loading ? (
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 text-slate-500 shadow-sm">Chargement des pays…</div>
+      ) : error ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-rose-700">Erreur : {error}</div>
+      ) : (
+        <section className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+        {countryCards.map((country) => (
           <CountryCard key={country.id} country={country} />
         ))}
-      </section>
+        </section>
+      )}
 
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900">
         <span className="font-semibold">ℹ️ Information :</span>{' '}
